@@ -35,7 +35,6 @@ static int botClient = -1;
 static char nextmap[50];
 static Handle nextMapTimer;
 static Handle heartbeatTimer;
-//static bool isTeamOnlyMessage = false;
 static bool pluginStartComplete = false;
 
 public void OnPluginStart() {
@@ -48,14 +47,6 @@ public void OnPluginStart() {
 
 	httpClient = new HTTPClient("http://elite-duckerz.bot.zone");
 	httpClient.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
-	
-	// replaced by usage of OnClientSayCommand
-	/*
-	RegConsoleCmd("say", Command_Say);
-	RegConsoleCmd("say_team", Command_SayTeam);
-	HookEvent("player_say", Event_PlayerSay);
-	HookEvent("player_chat", Event_PlayerChat); // event never gets thrown on css for some reason
-	*/
 	
 	// basechat say commands redefined to also catch them and forward to the bot
 	g_Cvar_Chatmode = CreateConVar("sm_chat_mode", "1", "Allows player's to send messages to admin chat.", 0, true, 0.0, true, 1.0);
@@ -83,7 +74,6 @@ public void OnPluginStart() {
 	AutoExecConfig(true, "vici");
 	
 	LogMessage("Plugin VICI successfully started!");
-	LogError("Plugin VICI successfully started!");
 }
 
 
@@ -176,15 +166,6 @@ public Action Event_PlayerDisconnect(Event event, const char[] name, bool dontBr
 
 public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)  { 
 	roundCounter++;
-	/*if(!IsClientConnected(botClient) || !IsFakeClient(botClient)) {
-		createChatbot();
-	} else {
-		char clientName[20];
-		GetClientName(botClient, clientName, 20);
-		if(!StrEqual(clientName, botName)) {
-			createChatbot();
-		}
-	}*/
 	JSONObject metaData = new JSONObject();
 	metaData.SetInt("roundCounter", roundCounter);
 	SendEventToBot("ROUND_START", metaData);
@@ -198,14 +179,9 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)  
 	event.GetString("message", message, sizeof(message));
 	metaData.SetString("message", message);
 	SendEventToBot("ROUND_END", metaData);
-} 	
-
-public void createChatbot() {
-	//botClient = CreateFakeClient(botName);
 }
 
 public void OnMapStart()  {
-	//createChatbot();
 	roundCounter = 0;
 	JSONObject metaData = new JSONObject();
 	SendEventToBot("MAP_STARTED", metaData);
@@ -377,15 +353,6 @@ int FindColor(const char[] color) {
 	return -1;
 }
 
-/*
-public Action:Command_Say(client, args) {
-	isTeamOnlyMessage = false; // Ugly hack to get around player_chat event not working.
-}
-
-public Action:Command_SayTeam(client, args) {
-	isTeamOnlyMessage = true; // Ugly hack to get around player_chat event not working.
-}
-*/
  
 /*
 public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast) {
@@ -486,28 +453,6 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 	SendEventToBot("PLAYER_SPAWNED", metaData);
 }
 
-/*
-// never triggered for some reasons
-public void Event_PlayerChat(Event event, const char[] name, bool dontBroadcast) {
-	int client_id = event.GetInt("userid");
-	int client = GetClientOfUserId(client_id);
-	char message[256];
-	event.GetString("text", message, sizeof(message));
-	bool teamOnly = event.GetBool("teamonly");
-	JSONObject metaData = new JSONObject();
-	metaData.SetBool("teamChat", teamOnly);
-	AddClientDetails(client, metaData);
-	SendEventToBot("PLAYER_CHAT", metaData);
-}
-
-public void Event_PlayerSay(Event event, const char[] name, bool dontBroadcast) {
-	int userId = event.GetInt("userid");
-	char message[256];
-	event.GetString("text", message, sizeof(message));
-	SendMessageToBot(userId, "say", message);
-}
-*/
-
 public void OnResponseReceived(HTTPResponse response, any value) {
 	if (response.Status != HTTPStatus_OK) {
 		LogError("Chatbot Connection Failed [Status Code: %i]: %s", response.Status, response.Data);
@@ -529,18 +474,14 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 		int responseType = result.GetInt("responseType");
 		if(responseType == 0) { // public chat
 			result.GetString("message", message, sizeof(message));
-			//CPrintToChatAllEx(botClient, "{teamcolor}%N{default} :  %s", botClient, message);
 			CPrintToChatAll("{fullred}(Admin) {lawngreen}%s: {fuchsia}%s", botName, message);
-			//PrintToChatAll("%s: %s", botName, message);
 		}
 		else if(responseType == 1) { // private chat
 			result.GetString("message", message, sizeof(message));
 			JSONArray targets = view_as<JSONArray>(result.Get("responseTargets"));
 			int numTargets = targets.Length;
 			for (int j = 0; j < numTargets; j++) {
-				//CPrintToChat(targets.GetInt(j), "{teamcolor}%N{default} :  %s", botClient, message);
 				CPrintToChat(targets.GetInt(j), "{fullred}(Private) %s: {navajowhite}%s", botName, message);
-				//PrintToChat(targets.GetInt(j), "%s: %s", botName, message);
 			}
 			delete targets;
 		}
@@ -553,7 +494,6 @@ public void SendMessageToBot(int client, const char[] sayCommand, const char[] m
 	JSONObject viciData = new JSONObject();
 	viciData.SetString("sayCommand", sayCommand);
 	viciData.SetString("message", message);
-	//viciData.SetBool("teamOnly", isTeamOnlyMessage);
 	AddClientDetails(client, viciData);
 	SendEventToBot("CHAT", viciData);
 }
@@ -562,7 +502,6 @@ public void SendPrivateMessageToBot(int client, int receiver, const char[] messa
 	JSONObject viciData = new JSONObject();
 	viciData.SetString("sayCommand", "sm_psay");
 	viciData.SetString("message", message);
-	//viciData.SetBool("teamOnly", isTeamOnlyMessage);
 	AddClientDetails(client, viciData);
 	JSONObject receiverDetails = new JSONObject();
 	AddClientDetails(receiver, receiverDetails);
