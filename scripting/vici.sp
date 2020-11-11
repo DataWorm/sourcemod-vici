@@ -25,10 +25,10 @@ static char botName[] = "AI Bot";
 
 static char g_ColorNames[13][10] = {"White", "Red", "Green", "Blue", "Yellow", "Purple", "Cyan", "Orange", "Pink", "Olive", "Lime", "Violet", "Lightblue"};
 
-static ConVar g_serverId;
+static ConVar g_authToken;
 static ConVar g_heartbeat;
 static ConVar g_Cvar_Chatmode;
-static char serverId[20];
+static char authToken[20];
 static HTTPClient httpClient;
 static int roundCounter = 0; 
 static char nextmap[50];
@@ -37,10 +37,10 @@ static Handle heartbeatTimer;
 static bool pluginStartComplete = false;
 
 public void OnPluginStart() {
-	g_serverId = CreateConVar("vici_server_id", "", "Sets a server identifier to be used by the chatbot to identify the source of messages", FCVAR_PROTECTED);
-	g_serverId.AddChangeHook(ServerIdChanged);
+	g_authToken = CreateConVar("vici_token", "", "Sets a token managed by the backend server to authenticate/identify this gameserver. This value needs to be set otherwise the plugin will not perform any actions.", FCVAR_PROTECTED);
+	g_authToken.AddChangeHook(authTokenChanged);
 	g_heartbeat = CreateConVar("vici_heartbeat", "10", "The periodic time in seconds in which a heartbeat message is sent to the chatbot", FCVAR_PROTECTED);
-	g_serverId.GetString(serverId, 20);
+	g_authToken.GetString(authToken, 20);
 	
 	g_Cvar_Chatmode = CreateConVar("sm_chat_mode", "1", "Allows player's to send messages to admin chat.", 0, true, 0.0, true, 1.0);
 	
@@ -48,7 +48,7 @@ public void OnPluginStart() {
 	// httpClient.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
 	
 	AutoExecConfig(true, "vici");
-	updateServerId();
+	updateAuthToken();
 	
 	init();
 	
@@ -79,10 +79,10 @@ public init() {
 
 }
 
-public updateServerId() {
-	g_serverId.GetString(serverId, 20);
-	if(strlen(serverId) > 0) {
-		LogMessage("Server ID set to '%s'", serverId);
+public updateAuthToken() {
+	g_authToken.GetString(authToken, 20);
+	if(strlen(authToken) > 0) {
+		LogMessage("Auth Token has been configured!");
 		if(!pluginStartComplete) {
 			pluginStartComplete = true; 
 			JSONObject metaData = new JSONObject();
@@ -95,13 +95,13 @@ public updateServerId() {
 			LogMessage("Plugin configured and ready!");
 		}
 	} else {
-		LogMessage("Server ID not yet configured");
+		LogMessage("Auth Token not yet configured");
 	}
 }
 
-public ServerIdChanged(ConVar convar, char[] oldValue, char[] newValue)
+public authTokenChanged(ConVar convar, char[] oldValue, char[] newValue)
 {
-	updateServerId();
+	updateAuthToken();
 }
 
 public void OnPluginEnd() {
@@ -539,7 +539,7 @@ public void SendEventToBot(char[] eventType, JSONObject metaData) {
 public void SendToBot(JSONObject metaData) {	
 	if(pluginStartComplete) {
 		metaData.SetString("source", "css");
-		metaData.SetString("serverId", serverId);
+		metaData.SetString("token", authToken);
 		metaData.SetInt("playerCount", GetClientCount(true));
 		httpClient.Post("daniel-duck.php", metaData, OnResponseReceived);
 	}
