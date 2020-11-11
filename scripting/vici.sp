@@ -31,7 +31,6 @@ static ConVar g_Cvar_Chatmode;
 static char serverId[20];
 static HTTPClient httpClient;
 static int roundCounter = 0; 
-static int botClient = -1;
 static char nextmap[50];
 static Handle nextMapTimer;
 static Handle heartbeatTimer;
@@ -42,14 +41,22 @@ public void OnPluginStart() {
 	g_serverId.AddChangeHook(ServerIdChanged);
 	g_heartbeat = CreateConVar("vici_heartbeat", "10", "The periodic time in seconds in which a heartbeat message is sent to the chatbot", FCVAR_PROTECTED);
 	g_serverId.GetString(serverId, 20);
-	g_heartbeat.AddChangeHook(heartbeatChanged);
 	
-
-	httpClient = new HTTPClient("http://elite-duckerz.bot.zone");
-	httpClient.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
-	
-	// basechat say commands redefined to also catch them and forward to the bot
 	g_Cvar_Chatmode = CreateConVar("sm_chat_mode", "1", "Allows player's to send messages to admin chat.", 0, true, 0.0, true, 1.0);
+	
+	httpClient = new HTTPClient("http://elite-duckerz.bot.zone");
+	// httpClient.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
+	
+	AutoExecConfig(true, "vici");
+	updateServerId();
+	
+	init();
+	
+	LogMessage("Plugin started!");
+}
+
+public init() {
+	// basechat say commands redefined to also catch them and forward to the bot
 	RegAdminCmd("sm_say", Command_SmSay, ADMFLAG_CHAT, "sm_say <message> - sends message to all players");
 	RegAdminCmd("sm_csay", Command_SmCsay, ADMFLAG_CHAT, "sm_csay <message> - sends centered message to all players");
 	RegAdminCmd("sm_hsay", Command_SmHsay, ADMFLAG_CHAT, "sm_hsay <message> - sends hint message to all players");
@@ -62,33 +69,39 @@ public void OnPluginStart() {
 	HookEvent("player_disconnect", Event_PlayerDisconnect); 
 	HookEvent("round_start", Event_RoundStart);  
 	HookEvent("round_end", Event_RoundEnd);  
-	//HookEvent("player_death", Event_PlayerDeath);
-	//HookEvent("player_hurt", Event_PlayerHurt);
-	//HookEvent("player_footstep", Event_PlayerFootstep);  
-	//HookEvent("player_falldamage", Event_PlayerFalldamage);  
 	HookEvent("player_changename", Event_PlayerChangeName);  
 	//HookEvent("player_team", Event_PlayerTeamChange); 
 	//HookEvent("player_spawn", Event_PlayerSpawn); 
-	
-	updateHeartbeat(g_heartbeat.IntValue);
-	AutoExecConfig(true, "vici");
-	
-	LogMessage("Plugin VICI successfully started!");
+	//HookEvent("player_death", Event_PlayerDeath);
+	//HookEvent("player_hurt", Event_PlayerHurt);
+	//HookEvent("player_footstep", Event_PlayerFootstep);  
+	//HookEvent("player_falldamage", Event_PlayerFalldamage);
+
 }
 
-
-public ServerIdChanged(ConVar convar, char[] oldValue, char[] newValue)
-{
+public updateServerId() {
 	g_serverId.GetString(serverId, 20);
 	if(strlen(serverId) > 0) {
+		LogMessage("Server ID set to '%s'", serverId);
 		if(!pluginStartComplete) {
 			pluginStartComplete = true; 
 			JSONObject metaData = new JSONObject();
 			metaData.SetInt("heartbeatRate", g_heartbeat.IntValue);
 			SendEventToBot("PLUGIN_STARTED", metaData);
+			g_heartbeat.AddChangeHook(heartbeatChanged);
 			updateHeartbeat(g_heartbeat.IntValue);
+			init();
+			OnMapStart();
+			LogMessage("Plugin configured and ready!");
 		}
+	} else {
+		LogMessage("Server ID not yet configured");
 	}
+}
+
+public ServerIdChanged(ConVar convar, char[] oldValue, char[] newValue)
+{
+	updateServerId();
 }
 
 public void OnPluginEnd() {
@@ -182,6 +195,9 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)  
 }
 
 public void OnMapStart()  {
+	if(!pluginStartComplete) {
+		return;
+	}
 	roundCounter = 0;
 	JSONObject metaData = new JSONObject();
 	SendEventToBot("MAP_STARTED", metaData);
@@ -454,13 +470,16 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 }
 
 public void OnResponseReceived(HTTPResponse response, any value) {
-	if (response.Status != HTTPStatus_OK) {
-		LogError("Chatbot Connection Failed [Status Code: %i]: %s", response.Status, response.Data);
-		return;
-	}
 	if (response.Data == null) {
 		// Invalid JSON response
 		LogError("Invalid Response!");
+		return;
+	}
+	if (response.Status != HTTPStatus_OK) {
+		JSONObject result = view_as<JSONObject>(response.Data);
+		char message[256];
+		result.GetString("message", message, sizeof(message));
+		LogError("Chatbot Connection Failed [Status Code: %i]: %s", response.Status, message);
 		return;
 	}
 
@@ -511,6 +530,7 @@ public void SendPrivateMessageToBot(int client, int receiver, const char[] messa
 }
 
 public void SendEventToBot(char[] eventType, JSONObject metaData) {
+	// LogMessage("Send event of type %s", eventType);
 	metaData.SetString("eventType", eventType);
 	AddGameDetails(metaData);
 	SendToBot(metaData);
@@ -602,6 +622,7 @@ public void AddClientDetails(int client, JSONObject clientDetailObject) {
 	clientDetailObject.SetBool("isMuted", BaseComm_IsClientMuted(client));
 }
 
+/*
 bool convertSteam2to3(int client, int args)
 {
 	if (args == 0) {
@@ -688,3 +709,4 @@ bool IsSteamIDSpecial(const char[] steamid) {
 	}
 	return false;
 }
+*/
