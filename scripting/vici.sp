@@ -28,7 +28,7 @@ static char g_ColorNames[13][10] = {"White", "Red", "Green", "Blue", "Yellow", "
 static ConVar g_authToken;
 static ConVar g_heartbeat;
 static ConVar g_Cvar_Chatmode;
-static char authToken[20];
+static char authToken[51];
 static HTTPClient httpClient;
 static int roundCounter = 0; 
 static char nextmap[50];
@@ -40,7 +40,7 @@ public void OnPluginStart() {
 	g_authToken = CreateConVar("vici_token", "", "Sets a token managed by the backend server to authenticate/identify this gameserver. This value needs to be set otherwise the plugin will not perform any actions.", FCVAR_PROTECTED);
 	g_authToken.AddChangeHook(authTokenChanged);
 	g_heartbeat = CreateConVar("vici_heartbeat", "10", "The periodic time in seconds in which a heartbeat message is sent to the chatbot", FCVAR_PROTECTED);
-	g_authToken.GetString(authToken, 20);
+	g_authToken.GetString(authToken, sizeof(authToken));
 	
 	g_Cvar_Chatmode = CreateConVar("sm_chat_mode", "1", "Allows player's to send messages to admin chat.", 0, true, 0.0, true, 1.0);
 	
@@ -80,7 +80,7 @@ public init() {
 }
 
 public updateAuthToken() {
-	g_authToken.GetString(authToken, 20);
+	g_authToken.GetString(authToken, sizeof(authToken));
 	if(strlen(authToken) > 0) {
 		LogMessage("Auth Token has been configured!");
 		if(!pluginStartComplete) {
