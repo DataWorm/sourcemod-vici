@@ -472,7 +472,7 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 public void OnResponseReceived(HTTPResponse response, any value) {
 	if (response.Data == null) {
 		// Invalid JSON response
-		LogError("Invalid Response!");
+		LogError("Invalid Response! [Status Code: %i]", response.Status);
 		return;
 	}
 	if (response.Status != HTTPStatus_OK) {
