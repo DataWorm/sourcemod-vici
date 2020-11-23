@@ -50,8 +50,6 @@ public void OnPluginStart() {
 	AutoExecConfig(true, "vici");
 	updateAuthToken();
 	
-	init();
-	
 	LogMessage("Plugin started!");
 }
 
@@ -476,10 +474,11 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 		return;
 	}
 	if (response.Status != HTTPStatus_OK) {
-		JSONObject result = view_as<JSONObject>(response.Data);
-		char message[256];
-		result.GetString("message", message, sizeof(message));
-		LogError("Chatbot Connection Failed [Status Code: %i]: %s", response.Status, message);
+		LogError("Chatbot Connection Failed [Status Code: %i]", response.Status);
+		//JSONObject result = view_as<JSONObject>(response.Data);
+		//char message[256];
+		//result.GetString("message", message, sizeof(message));
+		//LogError("Chatbot Connection Failed [Status Code: %i]: %s", response.Status, message);
 		return;
 	}
 
