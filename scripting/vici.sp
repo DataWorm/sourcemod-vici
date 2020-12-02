@@ -68,7 +68,7 @@ public init() {
 	HookEvent("round_start", Event_RoundStart);  
 	HookEvent("round_end", Event_RoundEnd);  
 	HookEvent("player_changename", Event_PlayerChangeName);  
-	//HookEvent("player_team", Event_PlayerTeamChange); 
+	HookEvent("player_team", Event_PlayerTeamChange); 
 	//HookEvent("player_spawn", Event_PlayerSpawn); 
 	//HookEvent("player_death", Event_PlayerDeath);
 	//HookEvent("player_hurt", Event_PlayerHurt);
@@ -540,7 +540,7 @@ public void SendToBot(JSONObject metaData) {
 		metaData.SetString("source", "css");
 		metaData.SetString("token", authToken);
 		metaData.SetInt("playerCount", GetClientCount(true));
-		httpClient.Post("daniel-duck.php", metaData, OnResponseReceived);
+		httpClient.Post("sourcemod-bot.php", metaData, OnResponseReceived);
 	}
 	delete metaData;
 }
