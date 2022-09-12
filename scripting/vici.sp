@@ -29,7 +29,6 @@ static ConVar g_authToken;
 static ConVar g_heartbeat;
 static ConVar g_Cvar_Chatmode;
 static char authToken[51];
-static HTTPClient httpClient;
 static int roundCounter = 0; 
 static char nextmap[50];
 static Handle nextMapTimer;
@@ -44,11 +43,11 @@ public void OnPluginStart() {
 	
 	g_Cvar_Chatmode = CreateConVar("sm_chat_mode", "1", "Allows player's to send messages to admin chat.", 0, true, 0.0, true, 1.0);
 	
-	httpClient = new HTTPClient("http://elite-duckerz.bot.zone");
-	// httpClient.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
-	
 	AutoExecConfig(true, "vici");
 	updateAuthToken();
+	
+	RegAdminCmd("sm_warn", Command_Warn, ADMFLAG_KICK, "Warns a player by name");
+	RegAdminCmd("sm_warrant", Command_Warrant, ADMFLAG_KICK, "Put player under surveillance");
 	
 	LogMessage("Plugin started!");
 }
@@ -75,6 +74,88 @@ public init() {
 	//HookEvent("player_footstep", Event_PlayerFootstep);  
 	//HookEvent("player_falldamage", Event_PlayerFalldamage);
 
+}
+
+public Action Command_Warn(int client, int args) {
+	if (args < 2) {
+		PrintToConsole(client, "Usage: sm_warn <name> <reason>");
+		return Plugin_Handled;
+	}
+ 
+	char name[32];
+	char reason[64];
+	int target = -1;
+	GetCmdArg(1, name, sizeof(name));
+	GetCmdArg(2, reason, sizeof(reason));
+ 
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+
+		char other[32];
+		GetClientName(i, other, sizeof(other));
+
+		if (StrEqual(name, other)) {
+			target = i;
+		}
+	}
+ 
+	if (target == -1) {
+		PrintToConsole(client, "Could not find any player with the name: \"%s\"", name);
+		return Plugin_Handled;
+	}
+
+	JSONObject viciData = new JSONObject();
+	viciData.SetString("reason", reason);
+	AddClientDetails(client, viciData);
+	JSONObject targetDetails = new JSONObject();
+	AddClientDetails(target, targetDetails);
+	viciData.Set("target", targetDetails);
+	SendEventToBot("WARN_PLAYER", viciData);
+
+	return Plugin_Handled;
+}
+
+public Action Command_Warrant(int client, int args) {
+	if (args < 2) {
+		PrintToConsole(client, "Usage: sm_warrant <name> <reason>");
+		return Plugin_Handled;
+	}
+ 
+	char name[32];
+	char reason[64];
+	int target = -1;
+	GetCmdArg(1, name, sizeof(name));
+	GetCmdArg(2, reason, sizeof(reason));
+ 
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+
+		char other[32];
+		GetClientName(i, other, sizeof(other));
+
+		if (StrEqual(name, other)) {
+			target = i;
+		}
+	}
+ 
+	if (target == -1) {
+		PrintToConsole(client, "Could not find any player with the name: \"%s\"", name);
+		return Plugin_Handled;
+	}
+
+	JSONObject viciData = new JSONObject();
+	viciData.SetString("reason", reason);
+	AddClientDetails(client, viciData);
+	JSONObject targetDetails = new JSONObject();
+	AddClientDetails(target, targetDetails);
+	viciData.Set("target", targetDetails);
+	SendEventToBot("WARRANT_PLAYER", viciData);
+
+	return Plugin_Handled;
 }
 
 public updateAuthToken() {
@@ -470,7 +551,6 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 public void OnResponseReceived(HTTPResponse response, any value) {
 	if (response.Data == null) {
 		// Invalid JSON response
-		LogError("Invalid Response! [Status Code: %i]", response.Status);
 		return;
 	}
 	if (response.Status != HTTPStatus_OK) {
@@ -485,24 +565,74 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 	JSONArray results = view_as<JSONArray>(response.Data);
 	int numResults = results.Length;
 	JSONObject result;
+	char commandType[32];
 	char message[256];
 	
 	for (int i = 0; i < numResults; i++) {
 		result = view_as<JSONObject>(results.Get(i));
-		int responseType = result.GetInt("responseType");
-		if(responseType == 0) { // public chat
-			result.GetString("message", message, sizeof(message));
-			CPrintToChatAll("{fullred}(Admin) {lawngreen}%s: {fuchsia}%s", botName, message);
-		}
-		else if(responseType == 1) { // private chat
-			result.GetString("message", message, sizeof(message));
-			JSONArray targets = view_as<JSONArray>(result.Get("responseTargets"));
-			int numTargets = targets.Length;
-			for (int j = 0; j < numTargets; j++) {
-				CPrintToChat(targets.GetInt(j), "{fullred}(Private) %s: {navajowhite}%s", botName, message);
+		result.GetString("commandType", commandType, sizeof(commandType));
+		if(StrEqual(commandType, "SEND_MESSAGE_OLD", true)) {
+			int responseType = result.GetInt("responseType");
+			if(responseType == 0) { // public chat
+				result.GetString("message", message, sizeof(message));
+				CPrintToChatAll("{fullred}(Admin) {lawngreen}%s: {fuchsia}%s", botName, message);
 			}
-			delete targets;
+			else if(responseType == 1) { // private chat
+				result.GetString("message", message, sizeof(message));
+				JSONArray targets = view_as<JSONArray>(result.Get("responseTargets"));
+				int numTargets = targets.Length;
+				for (int j = 0; j < numTargets; j++) {
+					CPrintToChat(targets.GetInt(j), "{fullred}(Private) %s: {navajowhite}%s", botName, message);
+				}
+				delete targets;
+			}
+		} else if(StrEqual(commandType, "SEND_MESSAGE", true)) {
+			char format[256];
+			result.GetString("message", message, sizeof(message));
+			result.GetString("format", format, sizeof(format));
+			if(result.HasKey("receivers") && !result.IsNull("receivers")) { // private chat
+				char steamId64[20];
+				char specialTarget[10];
+				JSONArray targets = view_as<JSONArray>(result.Get("receivers"));
+				int numTargets = targets.Length;
+				for (int j = 0; j < numTargets; j++) {
+					targets.GetString(j, specialTarget, sizeof(specialTarget));
+					if(StrEqual(specialTarget, "@ADMIN", false)) {
+						for (int client = 1; client <= MaxClients; client++) {
+							if (!IsClientConnected(client)) {
+								continue;
+							}
+							AdminId adminId = GetUserAdmin(client);
+							if (adminId != INVALID_ADMIN_ID && adminId.HasFlag(Admin_Kick)) {
+								CPrintToChat(client, format, message);
+							}
+						}
+					} else {
+						targets.GetInt64(j, steamId64, sizeof(steamId64));
+						int clientId = steamId64ToClientId(steamId64);
+						if(clientId < 0) {
+							// player not online (anymore)
+							continue;
+						}
+						CPrintToChat(clientId, format, message);
+					}
+				}
+				delete targets;
+			}
+			else { // public chat
+				CPrintToChatAll(format, message);
+			}
+		} else if(StrEqual(commandType, "LOG_INFO", true)) {
+			result.GetString("message", message, sizeof(message));
+			LogMessage(message);
+		} else if(StrEqual(commandType, "LOG_ERROR", true)) {
+			result.GetString("message", message, sizeof(message));
+			LogError(message);
+		} else if(StrEqual(commandType, "SERVER_COMMAND", true)) {
+			result.GetString("command", message, sizeof(message));
+			ServerCommand(message);
 		}
+		
 		delete result;
     }
 	delete results;
@@ -540,7 +670,10 @@ public void SendToBot(JSONObject metaData) {
 		metaData.SetString("source", "css");
 		metaData.SetString("token", authToken);
 		metaData.SetInt("playerCount", GetClientCount(true));
-		httpClient.Post("sourcemod-bot.php", metaData, OnResponseReceived);
+		
+		HTTPRequest httpRequest = new HTTPRequest("http://elite-duckerz.bot.zone/sourcemod-bot.php");
+		// httpRequest.SetHeader("Authorization", "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
+		httpRequest.Post(metaData, OnResponseReceived);
 	}
 	delete metaData;
 }
@@ -593,6 +726,7 @@ public void AddClientDetails(int client, JSONObject clientDetailObject) {
 	
 	AdminId adminId = GetUserAdmin(client);
 	clientDetailObject.SetBool("isChatAdmin", adminId != INVALID_ADMIN_ID && adminId.HasFlag(Admin_Chat));
+	clientDetailObject.SetBool("isAdmin", adminId != INVALID_ADMIN_ID && adminId.HasFlag(Admin_Kick));
 	
 	int steamAccountId = GetSteamAccountID(client, true);
 	char steamId2[20], steamId3[20], steamId64[20], engineId[20];
@@ -619,6 +753,21 @@ public void AddClientDetails(int client, JSONObject clientDetailObject) {
 	clientDetailObject.SetBool("isAlive", IsPlayerAlive(client));
 	clientDetailObject.SetBool("isGagged", BaseComm_IsClientGagged(client));
 	clientDetailObject.SetBool("isMuted", BaseComm_IsClientMuted(client));
+}
+
+int steamId64ToClientId(char[] steamId64) {
+	char steamId[20];
+	
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+		GetClientAuthId(i, AuthId_SteamID64, steamId, sizeof(steamId));
+		if (StrEqual(steamId, steamId64)) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 /*
