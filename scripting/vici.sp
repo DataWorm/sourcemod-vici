@@ -76,6 +76,39 @@ public init() {
 
 }
 
+int findClientIdByName(char[] name) {
+	char other[32];
+	// try to find exact match first
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+		GetClientName(i, other, sizeof(other));
+		if (StrEqual(name, other)) {
+			return i;
+		}
+	}
+	
+	// if no exact match was found, try to find one partial match
+	int target = -1;
+	int count = 0;
+	for (int i = 1; i <= MaxClients; i++) {
+		if (!IsClientConnected(i)) {
+			continue;
+		}
+		GetClientName(i, other, sizeof(other));
+		if (StrContains(name, other, false) != -1) {
+			target = i;
+			count++;
+		}
+	}
+	// return -2 if there are multiple partial matches
+	if(count > 1) {
+		return -2;
+	}
+	return target;
+}
+
 public Action Command_Warn(int client, int args) {
 	if (args < 2) {
 		PrintToConsole(client, "Usage: sm_warn <name> <reason>");
@@ -84,25 +117,11 @@ public Action Command_Warn(int client, int args) {
  
 	char name[32];
 	char reason[64];
-	int target = -1;
 	GetCmdArg(1, name, sizeof(name));
 	GetCmdArg(2, reason, sizeof(reason));
- 
-	for (int i = 1; i <= MaxClients; i++) {
-		if (!IsClientConnected(i)) {
-			continue;
-		}
-
-		char other[32];
-		GetClientName(i, other, sizeof(other));
-
-		if (StrEqual(name, other)) {
-			target = i;
-		}
-	}
+	int target = FindTarget(client, name, true, false);
  
 	if (target == -1) {
-		PrintToConsole(client, "Could not find any player with the name: \"%s\"", name);
 		return Plugin_Handled;
 	}
 
@@ -125,25 +144,11 @@ public Action Command_Warrant(int client, int args) {
  
 	char name[32];
 	char reason[64];
-	int target = -1;
 	GetCmdArg(1, name, sizeof(name));
 	GetCmdArg(2, reason, sizeof(reason));
- 
-	for (int i = 1; i <= MaxClients; i++) {
-		if (!IsClientConnected(i)) {
-			continue;
-		}
-
-		char other[32];
-		GetClientName(i, other, sizeof(other));
-
-		if (StrEqual(name, other)) {
-			target = i;
-		}
-	}
+	int target = FindTarget(client, name, true, false);
  
 	if (target == -1) {
-		PrintToConsole(client, "Could not find any player with the name: \"%s\"", name);
 		return Plugin_Handled;
 	}
 
