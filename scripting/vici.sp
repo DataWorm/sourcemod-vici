@@ -49,6 +49,7 @@ public void OnPluginStart() {
 	RegAdminCmd("sm_warn", Command_Warn, ADMFLAG_KICK, "Warns a player by name");
 	RegAdminCmd("sm_warrant", Command_Warrant, ADMFLAG_KICK, "Put player under surveillance");
 	RegAdminCmd("sm_unwarrant", Command_Unwarrant, ADMFLAG_KICK, "Unwarrant player");
+	RegAdminCmd("sm_investigate", Command_Investigate, ADMFLAG_KICK, "Retrieve more details about a player");
 	
 	LogMessage("Plugin started!");
 }
@@ -166,7 +167,7 @@ public Action Command_Warrant(int client, int args) {
 
 public Action Command_Unwarrant(int client, int args) {
 	if (args < 1) {
-		PrintToConsole(client, "Usage: sm_warrant <name>");
+		PrintToConsole(client, "Usage: sm_unwarrant <name>");
 		return Plugin_Handled;
 	}
  
@@ -184,6 +185,30 @@ public Action Command_Unwarrant(int client, int args) {
 	AddClientDetails(target, targetDetails);
 	viciData.Set("target", targetDetails);
 	SendEventToBot("UNWARRANT_PLAYER", viciData);
+
+	return Plugin_Handled;
+}
+
+public Action Command_Investigate(int client, int args) {
+	if (args < 1) {
+		PrintToConsole(client, "Usage: sm_investigate <name>");
+		return Plugin_Handled;
+	}
+ 
+	char name[32];
+	GetCmdArg(1, name, sizeof(name));
+	int target = FindTarget(client, name, true, false);
+ 
+	if (target == -1) {
+		return Plugin_Handled;
+	}
+
+	JSONObject viciData = new JSONObject();
+	AddClientDetails(client, viciData);
+	JSONObject targetDetails = new JSONObject();
+	AddClientDetails(target, targetDetails);
+	viciData.Set("target", targetDetails);
+	SendEventToBot("INVESTIGATE_PLAYER", viciData);
 
 	return Plugin_Handled;
 }
