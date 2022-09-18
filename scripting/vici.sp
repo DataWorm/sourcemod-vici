@@ -646,11 +646,10 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 			result.GetString("message", message, sizeof(message));
 			result.GetString("format", format, sizeof(format));
 			if(result.HasKey("receivers") && !result.IsNull("receivers")) { // private chat
-				char steamId64[20];
-				char specialTarget[10];
 				JSONArray targets = view_as<JSONArray>(result.Get("receivers"));
 				int numTargets = targets.Length;
 				for (int j = 0; j < numTargets; j++) {
+					char specialTarget[10];
 					targets.GetString(j, specialTarget, sizeof(specialTarget));
 					if(StrEqual(specialTarget, "@ADMIN", false)) {
 						for (int client = 1; client <= MaxClients; client++) {
@@ -663,6 +662,7 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 							}
 						}
 					} else {
+						char steamId64[20];
 						targets.GetInt64(j, steamId64, sizeof(steamId64));
 						int clientId = steamId64ToClientId(steamId64);
 						if(clientId < 0) {
