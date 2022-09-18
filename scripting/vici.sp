@@ -111,6 +111,36 @@ int findClientIdByName(char[] name) {
 	return target;
 }
 
+int FindXthOccurenceOfCharInString(int occurence, const char[] str, char c) {
+	int len = strlen(str);
+    
+	for (int i = 0; i < len; i++) {
+		if (str[i] == c) {
+			occurence--;
+			if(occurence == 0) {
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+getRemainingArgsAsString(int argStartIndex, char[] buffer, int maxlength) {
+	char fullArgString[256];
+	GetCmdArgString(fullArgString, sizeof(fullArgString));
+	if(argStartIndex <= 1) {
+		strcopy(buffer, maxlength, fullArgString[0]);
+	}
+	else {
+		int index = FindXthOccurenceOfCharInString(argStartIndex-1, fullArgString, ' ');
+		if(index < 0) {
+			// too less arguments provided -> empty string
+			return;
+		}
+		strcopy(buffer, maxlength, fullArgString[index+1]);
+	}
+}
+
 public Action Command_Warn(int client, int args) {
 	if (args < 2) {
 		PrintToConsole(client, "Usage: sm_warn <name> <reason>");
@@ -120,7 +150,7 @@ public Action Command_Warn(int client, int args) {
 	char name[32];
 	char reason[64];
 	GetCmdArg(1, name, sizeof(name));
-	GetCmdArg(2, reason, sizeof(reason));
+	getRemainingArgsAsString(2, reason, sizeof(reason));
 	int target = FindTarget(client, name, true, false);
  
 	if (target == -1) {
@@ -147,7 +177,7 @@ public Action Command_Warrant(int client, int args) {
 	char name[32];
 	char reason[64];
 	GetCmdArg(1, name, sizeof(name));
-	GetCmdArg(2, reason, sizeof(reason));
+	getRemainingArgsAsString(2, reason, sizeof(reason));
 	int target = FindTarget(client, name, true, false);
  
 	if (target == -1) {
