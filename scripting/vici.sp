@@ -692,7 +692,7 @@ public void OnResponseReceived(HTTPResponse response, any value) {
 							}
 						}
 					} else {
-						char steamId64[20];
+						char steamId64[30];
 						targets.GetInt64(j, steamId64, sizeof(steamId64));
 						int clientId = steamId64ToClientId(steamId64);
 						if(clientId < 0) {
@@ -814,7 +814,7 @@ public void AddClientDetails(int client, JSONObject clientDetailObject) {
 	clientDetailObject.SetBool("isAdmin", adminId != INVALID_ADMIN_ID && adminId.HasFlag(Admin_Kick));
 	
 	int steamAccountId = GetSteamAccountID(client, true);
-	char steamId2[20], steamId3[20], steamId64[20], engineId[20];
+	char steamId2[30], steamId3[30], steamId64[30], engineId[30];
 	GetClientAuthId(client, AuthId_Steam2, steamId2, sizeof(steamId2));
 	GetClientAuthId(client, AuthId_Steam3, steamId3, sizeof(steamId3));
 	GetClientAuthId(client, AuthId_SteamID64, steamId64, sizeof(steamId64));
@@ -841,7 +841,7 @@ public void AddClientDetails(int client, JSONObject clientDetailObject) {
 }
 
 int steamId64ToClientId(char[] steamId64) {
-	char steamId[20];
+	char steamId[30];
 	
 	for (int i = 1; i <= MaxClients; i++) {
 		if (!IsClientConnected(i)) {
@@ -863,7 +863,7 @@ bool convertSteam2to3(int client, int args)
 		return false;
 	}
 	
-	char steam2[20];
+	char steam2[30];
 	char steam3[17];
 	char parts[3][10];
 	int universe;
@@ -899,7 +899,7 @@ bool convertSteam3to2(int client, int args) {
 	}
 
 	char steam3[17];
-	char steam2[2][20];
+	char steam2[2][30];
 	char parts[3][10];
 	int universe;
 	int steamid32;
